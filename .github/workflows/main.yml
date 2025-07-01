@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source
+    - name: Checkout source code
       uses: actions/checkout@v4
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y build-essential unzip wget sed \
@@ -36,4 +36,25 @@ jobs:
         wget https://dl.google.com/android/repository/android-ndk-r17c-linux-x86_64.zip
         unzip android-ndk-r17c-linux-x86_64.zip -d $HOME/ndk
 
-    - name: Patch Waf for Python
+    - name: Patch Waf for Python 3 compatibility
+      run: |
+        find ./third_party/waf/wafadmin/ -type f -name "*.py" \
+          -exec sed -i -E \
+          's/except ([^(]*), *([a-zA-Z_]+)/except \1 as \2/g; s/except \(([^)]*) as ([^)]+)\)/except (\1, \2)/g' {} \;
+
+    - name: Configure build
+      run: |
+        export NDK=$HOME/ndk/android-ndk-r17c
+        chmod +x configure.sh compile.sh
+        ./configure.sh
+
+    - name: Compile project
+      run: |
+        ./compile.sh
+
+    - name: Upload ARM64 build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: samba-arm64
+        path: |
+          out/samba/*
