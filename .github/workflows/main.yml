@@ -1,0 +1,47 @@
+name: Build Android_Samba for ARM64
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install python2 build-essential unzip wget sed
+
+    - name: Download Android NDK
+      run: |
+        wget https://dl.google.com/android/repository/android-ndk-r17c-linux-x86_64.zip
+        unzip android-ndk-r17c-linux-x86_64.zip -d $HOME/ndk
+
+    - name: Patch Python 2 syntax in waf
+      run: |
+        find ./third_party/waf/wafadmin/ -type f -name "*.py" \
+          -exec sed -i -E \
+          's/except ([^(]*), *([a-zA-Z_]+)/except \1 as \2/g; s/except \(([^)]*) as ([^)]+)\)/except (\1, \2)/g' {} \;
+
+    - name: Configure build
+      run: |
+        export NDK=$HOME/ndk/android-ndk-r17c
+        chmod +x configure.sh compile.sh
+        ./configure.sh
+
+    - name: Compile
+      run: |
+        ./compile.sh
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: samba-arm64
+        path: |
+          out/samba/*
